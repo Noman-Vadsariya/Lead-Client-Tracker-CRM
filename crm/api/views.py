@@ -5,6 +5,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q
 from django.contrib.auth.models import User, Group
+from import_export import resources
 from ..models import Lead, Client, Note, FollowUp
 from .serializers import (
     LeadSerializer, ClientSerializer, NoteSerializer, FollowUpSerializer,
@@ -41,6 +42,15 @@ class LeadViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        resource = resources.modelresource_factory(model=Lead)()
+        dataset = resource.export(queryset)
+        response = Response(dataset.csv, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="leads.csv"'
+        return response
+
 
 class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
@@ -63,6 +73,15 @@ class ClientViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(next_follow_up__date=today)
 
         return queryset
+
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        resource = resources.modelresource_factory(model=Client)()
+        dataset = resource.export(queryset)
+        response = Response(dataset.csv, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="clients.csv"'
+        return response
 
 
 class NoteViewSet(viewsets.ModelViewSet):

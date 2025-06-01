@@ -1,8 +1,12 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from django.urls import reverse
+from django.urls import reverse, path
+from django.shortcuts import render, redirect
+from django.contrib import messages
 from import_export.admin import ImportExportModelAdmin
 from import_export import resources
+import csv
+
 from .models import Lead, Client, Note, FollowUp
 
 
@@ -10,16 +14,18 @@ class LeadResource(resources.ModelResource):
     class Meta:
         model = Lead
         fields = ('name', 'email', 'phone', 'company', 'status',
-                  'source', 'assigned_to', 'next_follow_up', 'notes')
+                  'source', 'assigned_to', 'next_follow_up', 'notes', 'created_at', 'updated_at')
         export_order = fields
+        import_id_fields = ['email']
 
 
 class ClientResource(resources.ModelResource):
     class Meta:
         model = Client
         fields = ('name', 'email', 'phone', 'company', 'status',
-                  'assigned_to', 'next_follow_up', 'notes')
+                  'assigned_to', 'next_follow_up', 'notes', 'industry', 'created_at', 'updated_at')
         export_order = fields
+        import_id_fields = ['email']
 
 
 @admin.register(Lead)
@@ -36,6 +42,45 @@ class LeadAdmin(ImportExportModelAdmin):
         return ", ".join([tag.name for tag in obj.tags.all()])
     get_tags.short_description = 'Tags'
 
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('import-csv/', self.import_csv, name='lead-import-csv'),
+        ]
+        return custom_urls + urls
+
+    def import_csv(self, request):
+        if request.method == "POST":
+            csv_file = request.FILES.get("csv_file")
+            if not csv_file:
+                messages.error(request, "Please select a CSV file.")
+                return redirect("..")
+
+            if not csv_file.name.endswith('.csv'):
+                messages.error(request, "File must be a CSV.")
+                return redirect("..")
+
+            decoded_file = csv_file.read().decode('utf-8').splitlines()
+            reader = csv.DictReader(decoded_file)
+
+            for row in reader:
+                Lead.objects.create(
+                    name=row.get('name', ''),
+                    email=row.get('email', ''),
+                    phone=row.get('phone', ''),
+                    company=row.get('company', ''),
+                    status=row.get('status', 'new'),
+                    source=row.get('source', 'other'),
+                    notes=row.get('notes', ''),
+                    assigned_to=row.get('assigned_to', None),
+                    next_follow_up=row.get('next_follow_up', None)
+                )
+
+            messages.success(request, "Leads imported successfully!")
+            return redirect("..")
+
+        return render(request, "admin/csv_form.html", {"title": "Import Leads"})
+
 
 @admin.register(Client)
 class ClientAdmin(ImportExportModelAdmin):
@@ -50,6 +95,45 @@ class ClientAdmin(ImportExportModelAdmin):
     def get_tags(self, obj):
         return ", ".join([tag.name for tag in obj.tags.all()])
     get_tags.short_description = 'Tags'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('import-csv/', self.import_csv, name='client-import-csv'),
+        ]
+        return custom_urls + urls
+
+    def import_csv(self, request):
+        if request.method == "POST":
+            csv_file = request.FILES.get("csv_file")
+            if not csv_file:
+                messages.error(request, "Please select a CSV file.")
+                return redirect("..")
+
+            if not csv_file.name.endswith('.csv'):
+                messages.error(request, "File must be a CSV.")
+                return redirect("..")
+
+            decoded_file = csv_file.read().decode('utf-8').splitlines()
+            reader = csv.DictReader(decoded_file)
+
+            for row in reader:
+                Client.objects.create(
+                    name=row.get('name', ''),
+                    email=row.get('email', ''),
+                    phone=row.get('phone', ''),
+                    company=row.get('company', ''),
+                    status=row.get('status', 'new'),
+                    assigned_to=row.get('assigned_to', None),
+                    next_follow_up=row.get('next_follow_up', None),
+                    industry=row.get('industry', 'other'),
+                    notes=row.get('notes', '')
+                )
+
+            messages.success(request, "Clients imported successfully!")
+            return redirect("..")
+
+        return render(request, "admin/csv_form.html", {"title": "Import Clients"})
 
 
 @admin.register(Note)
