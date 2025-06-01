@@ -1,7 +1,9 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.contrib.auth.models import User
+from django.core.paginator import Paginator
 from .models import Lead, Client, Note, FollowUp
 
 
@@ -42,3 +44,52 @@ def dashboard(request):
     }
 
     return render(request, 'crm/dashboard.html', context)
+
+
+@login_required
+def lead_list(request):
+    # Get filter parameters
+    status = request.GET.get('status')
+    search = request.GET.get('search')
+    assigned_to = request.GET.get('assigned_to')
+
+    # Start with base queryset
+    leads = Lead.objects.all()
+
+    # Apply filters
+    if not request.user.is_staff:
+        leads = leads.filter(assigned_to=request.user)
+
+    if status:
+        leads = leads.filter(status=status)
+
+    if search:
+        leads = leads.filter(
+            Q(name__icontains=search) |
+            Q(email__icontains=search) |
+            Q(company__icontains=search) |
+            Q(notes__icontains=search)
+        )
+
+    if assigned_to:
+        leads = leads.filter(assigned_to_id=assigned_to)
+
+    # Order by created_at
+    leads = leads.order_by('-created_at')
+
+    # Pagination
+    paginator = Paginator(leads, 10)  # Show 10 leads per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Get all users for the assigned_to filter
+    users = User.objects.filter(is_active=True)
+
+    context = {
+        'leads': page_obj,
+        'users': users,
+        'is_paginated': page_obj.has_other_pages(),
+        'page_obj': page_obj,
+    }
+
+    return render(request, 'crm/lead_list.html', context)
