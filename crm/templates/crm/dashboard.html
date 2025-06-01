@@ -1,0 +1,118 @@
+{% extends "admin/base_site.html" %} {% load static %} {% block extrastyle %} {{
+block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/dashboard.css' %}" />
+{% endblock %} {% block content %}
+<div class="dashboard-container">
+  <div class="dashboard-header">
+    <h1>CRM Dashboard</h1>
+    <div class="date-filter">
+      <form method="get" class="filter-form">
+        <label for="date">Show follow-ups for:</label>
+        <input
+          type="date"
+          id="date"
+          name="date"
+          value="{{ today|date:'Y-m-d' }}"
+        />
+        <button type="submit">Filter</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+    <!-- Today's Follow-ups -->
+    <div class="dashboard-card">
+      <h2>Today's Follow-ups</h2>
+      <div class="follow-up-list">
+        {% for followup in today_followups %}
+        <div class="follow-up-item">
+          <div class="follow-up-header">
+            <span class="time">{{ followup.scheduled_date|time:"H:i" }}</span>
+            <span class="status {{ followup.status }}"
+              >{{ followup.status|title }}</span
+            >
+          </div>
+          <div class="follow-up-content">
+            <h3>
+              {% if followup.lead %}
+              <a href="{% url 'admin:crm_lead_change' followup.lead.id %}"
+                >{{ followup.lead.name }}</a
+              >
+              {% else %}
+              <a href="{% url 'admin:crm_client_change' followup.client.id %}"
+                >{{ followup.client.name }}</a
+              >
+              {% endif %}
+            </h3>
+            <p>{{ followup.notes|truncatechars:100 }}</p>
+          </div>
+        </div>
+        {% empty %}
+        <p class="no-items">No follow-ups scheduled for today.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Lead Pipeline -->
+    <div class="dashboard-card">
+      <h2>Lead Pipeline</h2>
+      <div class="pipeline-stats">
+        {% for status, count in lead_stats.items %}
+        <div class="pipeline-item">
+          <span class="status-label">{{ status|title }}</span>
+          <span class="status-count">{{ count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Recent Notes -->
+    <div class="dashboard-card">
+      <h2>Recent Notes</h2>
+      <div class="notes-list">
+        {% for note in recent_notes %}
+        <div class="note-item">
+          <div class="note-header">
+            <span class="author"
+              >{{ note.created_by.get_full_name|default:note.created_by.username
+              }}</span
+            >
+            <span class="date">{{ note.created_at|date:"M d, Y" }}</span>
+          </div>
+          <p>{{ note.content|truncatechars:150 }}</p>
+          <div class="note-footer">
+            {% if note.lead %}
+            <a href="{% url 'admin:crm_lead_change' note.lead.id %}"
+              >View Lead</a
+            >
+            {% else %}
+            <a href="{% url 'admin:crm_client_change' note.client.id %}"
+              >View Client</a
+            >
+            {% endif %}
+          </div>
+        </div>
+        {% empty %}
+        <p class="no-items">No recent notes.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="dashboard-card">
+      <h2>Quick Actions</h2>
+      <div class="quick-actions">
+        <a href="{% url 'admin:crm_lead_add' %}" class="action-button"
+          >Add New Lead</a
+        >
+        <a href="{% url 'admin:crm_client_add' %}" class="action-button"
+          >Add New Client</a
+        >
+        <a href="{% url 'admin:crm_followup_add' %}" class="action-button"
+          >Schedule Follow-up</a
+        >
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
